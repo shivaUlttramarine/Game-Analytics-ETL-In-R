@@ -1,0 +1,129 @@
+
+
+
+
+
+
+
+1. Save all the links you want to download in text file. (here:   D:work/garageGames/GA_links.txt)
+2. My Ga has 3 main Component. I save 2 important ones :   user_meta   and  data. so I save field-names in 2 Vectors:db_fields_user_meta , df_fields_data
+3. input credentials of db. (mysql in my case)
+4. Run the FOR loop. It does the followings:
+   A) download the link
+   B) Unzip the Jason file
+   C) Parse Jsone into 2 Dataframes (user_meta   and    data)
+   D) Conbines user_meta   and  data in a dataframe called "All"
+   E) save "All" to mysql
+   
+   
+```{r}
+#Load RMariaDB if it is not loaded already
+if(!"RMariaDB" %in% (.packages())){require(RMariaDB)}
+
+#Connecting to MySQL DB
+garageDB <- dbConnect(MariaDB()
+                      , user = "user"
+                      , password = "pass"
+                      , dbname = "Dbname"
+                      , host = "host",Port     = 3306)
+
+#List tables in DB
+dbListTables(garageDB)
+
+
+
+links<-'D:work/garageGames/GA_links.txt'
+library(jsonlite)
+
+db_fields_user_meta <- c("revenue","origin","is_converting","install_ts",  "install_hour","first_build","cohort_week","cohort_month","pay_ft","is_paying","receipt_status")
+df_fields_data<-c(
+  "v", "user_id"       ,        "session_num"   ,       
+  "session_id",            "sdk_version"      ,     "platform"    ,         
+  "os_version" ,           "manufacturer"      ,    "google_aid_src"   ,    
+  "google_aid" ,           "event_id"          ,    "engine_version"    ,   
+  "device"     ,           "custom_03"         ,    "custom_02"          ,  
+  "custom_01"  ,           "connection_type"   ,    "client_ts"            ,
+  "category"   ,           "build"              ,   "android_channel_id"  , 
+  "android_bundle_id" ,    "android_app_version" ,  "android_app_signature",
+  "android_app_build",     "severity"         ,     "message"       ,       
+  "amount"            ,    "value"            ,     "length"       ,        
+  "attempt_num"      ,     "reason"           ,     "error_parameter"  ,    
+  "error_category"    ,    "error_area"       ,     "error_action" ,        
+  "install"          ,     "limited_ad_tracking",   "jailbroken"   ,        
+  "android_mac_sha1" ,     "android_mac_md5"    ,   "android_id"   ,        
+  "transaction_num"  ,     "currency"           ,   "cart_type"    ,        
+  "amount_usd"      ,      "type"                               )
+
+db_fields
+paste0(db_table_fields,sep = ",")
+
+
+
+
+# ------------------------------- start downloading and alll-------------------------------------------
+for( link in links[1:2]){
+  con <- gzcon(url(paste(link, sep="")))
+  txt <- readLines(con)
+  df <-stream_in( gzcon(con  ))
+  
+  link_fields_user_meta <- colnames(df$user_meta)
+  link_fields_data      <- colnames(df$data)
+  
+  intrsc_user_meta <- intersect(link_fields_user_meta , db_fields_user_meta)
+  intrsc_data      <- intersect(link_fields_data      , df_fields_data)
+  
+  intrsc_user_meta
+  
+  str_user_user_meta <-  paste0(intrsc_user_meta,collapse = ',')
+  str_data          <-  paste0(intrsc_data,collapse = ',')
+  str_fields_all        <-  paste( str_user_user_meta, str_data  ,sep = ",")
+  str_fields_all
+  # df$data[,intrsc_data]
+  
+  # sql_qry <- paste( "insert into garajDb.ga_user_meta (" ,fields_all, ") VALUES" )
+  # sql_qry
+  # df$data[35,intrsc_data]
+  # intrsc_data
+  
+  for( i in 1:nrow(df)){
+    val_user_user_meta_i <-  paste0("'",df$user_meta[i,intrsc_user_meta],"'"    ,collapse = " , ")
+    val_data             <-  paste0("'",df$data[i,intrsc_data],"'"      ,collapse = " , ")
+    val_all           <-  paste( val_user_user_meta_i, val_data  ,sep = " , ")
+    print(val_data)
+    val_user_user_meta_i
+    typeof(val_user_user_meta_i)
+    
+    sql_qry<- paste( "insert into garajDb.game_analytic2 (" ,str_fields_all, ") VALUES (" , val_all ," ) ")
+    # sql_qry2 <- paste0( "VALUES (" , df$user_meta[i,intrsc_user_meta], df$data[i,intrsc_data] ,")" )
+    print(sql_qry)
+    results <- dbSendQuery(garageDB, sql_qry)
+    print(results)
+    
+  }
+  
+  colnames(df$user_meta$revenue )
+  
+  
+}
+
+
+
+
+------------------------------------------------------------
+# fields_exist <- function(df_fields,link){
+#   link_fields_user_meta <- colnames(link)
+#   diff<-setdiff(link_fields_user_meta,df_fields)
+#   diff
+#   
+# }
+
+
+# print('start downloading')
+# link <- "https://go-export.gameanalytics.com/export-data/95065-2020-11-16-3,352.json.gz?e=1608136181&s=WPhjdH5SgvjwIUncCP%2BXwGR7CCI%3D"
+# happy_data
+# head(happy_data)
+
+
+
+```
+
